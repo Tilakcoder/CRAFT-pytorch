@@ -42,25 +42,22 @@ def copyStateDict(state_dict):
 def str2bool(v):
     return v.lower() in ("yes", "y", "true", "t", "1")
 
-parser = argparse.ArgumentParser(description='CRAFT Text Detection')
-parser.add_argument('--trained_model', default='weights/craft_mlt_25k.pth', type=str, help='pretrained model')
-parser.add_argument('--text_threshold', default=0.7, type=float, help='text confidence threshold')
-parser.add_argument('--low_text', default=0.4, type=float, help='text low-bound score')
-parser.add_argument('--link_threshold', default=0.4, type=float, help='link confidence threshold')
-parser.add_argument('--cuda', default=True, type=str2bool, help='Use cuda for inference')
-parser.add_argument('--canvas_size', default=1280, type=int, help='image size for inference')
-parser.add_argument('--mag_ratio', default=1.5, type=float, help='image magnification ratio')
-parser.add_argument('--poly', default=False, action='store_true', help='enable polygon type')
-parser.add_argument('--show_time', default=False, action='store_true', help='show processing time')
-parser.add_argument('--test_folder', default='/data/', type=str, help='folder path to input images')
-parser.add_argument('--refine', default=False, action='store_true', help='enable link refiner')
-parser.add_argument('--refiner_model', default='weights/craft_refiner_CTW1500.pth', type=str, help='pretrained refiner model')
 
-args = parser.parse_args()
-
+trained_model = 'weights/craft_mlt_25k.pth'
+text_threshold = 0.7
+low_text = 0.4
+link_threshold = 0.4
+cuda = True
+canvas_size = 1280
+mag_ratio = 1.5
+poly = False
+show_time = False
+test_folder = '/data/'
+refine = False
+refiner_model = 'weights/craft_refiner_CTW1500.pth'
 
 """ For test images in a folder """
-image_list, _, _ = file_utils.get_files(args.test_folder)
+# image_list, _, _ = file_utils.get_files(test_folder)
 
 result_folder = './result/'
 if not os.path.isdir(result_folder):
@@ -70,7 +67,7 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
     t0 = time.time()
 
     # resize
-    img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image, args.canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio=args.mag_ratio)
+    img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image, canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio=mag_ratio)
     ratio_h = ratio_w = 1 / target_ratio
 
     # preprocessing
@@ -113,7 +110,7 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
     render_img = np.hstack((render_img, score_link))
     ret_score_text = imgproc.cvt2HeatmapImg(render_img)
 
-    if args.show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
+    if show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
 
     return boxes, polys, ret_score_text, (render_img, score_link)
 
@@ -128,12 +125,12 @@ class Access():
         self.net = CRAFT()     # initialize
 
         print('Loading weights from checkpoint (' + trained_model + ')')
-        if args.cuda:
+        if cuda:
             self.net.load_state_dict(copyStateDict(torch.load(trained_model)))
         else:
             self.net.load_state_dict(copyStateDict(torch.load(trained_model, map_location='cpu')))
 
-        if args.cuda:
+        if cuda:
             self.net = self.net.cuda()
             self.net = torch.nn.DataParallel(self.net)
             cudnn.benchmark = False
@@ -142,22 +139,22 @@ class Access():
 
         # LinkRefiner
         self.refine_net = None
-        if args.refine:
+        if refine:
             from refinenet import RefineNet
             self.refine_net = RefineNet()
-            print('Loading weights of refiner from checkpoint (' + args.refiner_model + ')')
-            if args.cuda:
-                self.refine_net.load_state_dict(copyStateDict(torch.load(args.refiner_model)))
+            print('Loading weights of refiner from checkpoint (' + refiner_model + ')')
+            if cuda:
+                self.refine_net.load_state_dict(copyStateDict(torch.load(refiner_model)))
                 self.refine_net = self.refine_net.cuda()
                 self.refine_net = torch.nn.DataParallel(self.refine_net)
             else:
-                self.refine_net.load_state_dict(copyStateDict(torch.load(args.refiner_model, map_location='cpu')))
+                self.refine_net.load_state_dict(copyStateDict(torch.load(refiner_model, map_location='cpu')))
 
             self.refine_net.eval()
-            args.poly = True
+            poly = True
     
     def predict(self, image_s):
         image = image if not isinstance(image_s, str) else imgproc.loadImage(image_s)
 
-        bboxes, polys, score_text, output = test_net(self.net, image, args.text_threshold, args.link_threshold, args.low_text, args.cuda, args.poly, self.refine_net)
+        bboxes, polys, score_text, output = test_net(self.net, image, text_threshold, link_threshold, low_text, cuda, poly, self.refine_net)
         return bboxes, polys, score_text, output
