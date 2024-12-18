@@ -154,7 +154,7 @@ class Access():
             poly = True
     
     def predict(self, image_s):
-        image = image if not isinstance(image_s, str) else imgproc.loadImage(image_s)
+        image = image_s if not isinstance(image_s, str) else imgproc.loadImage(image_s)
 
         bboxes, polys, score_text, output = test_net(self.net, image, text_threshold, link_threshold, low_text, cuda, poly, self.refine_net)
         return bboxes, polys, score_text, output
