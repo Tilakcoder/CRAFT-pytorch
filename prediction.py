@@ -160,12 +160,15 @@ class Access():
         return bboxes, polys, score_text, output
     
     def export_onx(self):
-        # Dummy input for export (batch size = 1, channels = 3, height = 768, width = 768)
+        # Check if the model is wrapped in DataParallel
+        model_to_export = self.net.module if isinstance(self.net, torch.nn.DataParallel) else self.net
+
+        # Dummy input
         dummy_input = torch.randn(1, 3, 768, 768)
 
         # Export to ONNX
         torch.onnx.export(
-            self.net,
+            model_to_export,
             dummy_input,
             "craft_model.onnx",
             input_names=["input"],
@@ -173,3 +176,4 @@ class Access():
             dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
             opset_version=11
         )
+        print("Model exported to ONNX!")
