@@ -163,8 +163,12 @@ class Access():
         # Check if the model is wrapped in DataParallel
         model_to_export = self.net.module if isinstance(self.net, torch.nn.DataParallel) else self.net
 
-        # Dummy input
-        dummy_input = torch.randn(1, 3, 768, 768)
+        # Move model to evaluation mode
+        model_to_export.eval()
+
+        # Move input to the same device as the model
+        device = next(model_to_export.parameters()).device  # Get the device of the model
+        dummy_input = torch.randn(1, 3, 768, 768).to(device)  # Move input to the same device
 
         # Export to ONNX
         torch.onnx.export(
