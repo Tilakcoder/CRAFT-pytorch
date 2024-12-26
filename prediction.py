@@ -158,3 +158,18 @@ class Access():
 
         bboxes, polys, score_text, output = test_net(self.net, image, text_threshold, link_threshold, low_text, cuda, poly, self.refine_net)
         return bboxes, polys, score_text, output
+    
+    def export_onx(self):
+        # Dummy input for export (batch size = 1, channels = 3, height = 768, width = 768)
+        dummy_input = torch.randn(1, 3, 768, 768)
+
+        # Export to ONNX
+        torch.onnx.export(
+            self.net,
+            dummy_input,
+            "craft_model.onnx",
+            input_names=["input"],
+            output_names=["output", "feature"],
+            dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+            opset_version=11
+        )
